@@ -1,0 +1,28 @@
+This plugin's integration code (pxtone_plugin.cpp and CMakeLists.txt) is
+licensed under the MIT License. See the top-level LICENSE file.
+
+Third-party dependencies:
+=========================
+
+libpxtone
+License: Custom permissive (free to use, modify, no permission needed)
+Source: https://pxtone.org/
+Via: https://github.com/Wohlstand/libpxtone
+
+Original license text (Japanese is the authoritative legal text):
+
+＜ライセンス的なこと＞
+
+    ・再生に必要な ソースコード(srcとincludeフォルダ内)は無償で使えます。改変もOKです。
+    ・特に許可をとる必要はありません。
+    ・利用の明記についてはお任せします。
+    ・利用が原因で何か問題があった場合の責任は負いかねます。
+
+----------------
+<Licensing> [Translated, original legal text is Japanese above]
+
+- The source code (content of "src" and "include" folders) required for
+  playback can be used free of charge. Modifications are okay.
+- No special permission is required.
+- We leave it to you to clarify the usage.
+- We are not responsible for any problems caused by using this software.
