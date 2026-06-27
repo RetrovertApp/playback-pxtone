@@ -102,7 +102,6 @@ struct PxToneReplayerData {
     pxtnService* pxtn;
     int total_samples;
     bool finished;
-    bool scope_enabled;
     // Keep file data for seeking (reload)
     uint8_t* file_data;
     size_t file_size;
@@ -412,37 +411,82 @@ static void pxtone_event(void* user_data, uint8_t* event_data, uint64_t len) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static uint32_t pxtone_get_scope_data(void* user_data, int channel, float* buffer, uint32_t num_samples) {
+static bool pxtone_get_structure(void* user_data, RVVizInfo* out) {
     PxToneReplayerData* data = (PxToneReplayerData*)user_data;
-    if (!data || !data->pxtn || !buffer) {
-        return 0;
+    if (!data || !data->pxtn || !out) {
+        return false;
     }
-
-    if (!data->scope_enabled) {
-        data->pxtn->moo_enable_scope_capture(1);
-        data->scope_enabled = true;
-    }
-
-    return data->pxtn->moo_get_scope_data(channel, buffer, num_samples);
+    int total = data->pxtn->Unit_Num();
+    out->caps = RVVizCaps_Scope | RVVizCaps_Vu;
+    out->scroll_mode = RVScrollMode_PerChannel;
+    out->pattern_channel_count = 0;
+    out->scope_channel_count = total > 0 ? (uint32_t)total : 0;
+    out->column_count = 0;
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static uint32_t pxtone_get_scope_channel_names(void* user_data, const char** names, uint32_t max_channels) {
-    PxToneReplayerData* data = static_cast<PxToneReplayerData*>(user_data);
-    if (data == nullptr || data->pxtn == nullptr)
+static uint32_t pxtone_get_scope_channels(void* user_data, RVChannelDesc* out, uint32_t cap) {
+    PxToneReplayerData* data = (PxToneReplayerData*)user_data;
+    if (!data || !data->pxtn || !out) {
         return 0;
-
-    static char s_name_bufs[32][16];
+    }
     int total = data->pxtn->Unit_Num();
     uint32_t count = total > 0 ? (uint32_t)total : 0;
-    if (count > 32)
-        count = 32;
-    if (count > max_channels)
-        count = max_channels;
+    if (count > cap)
+        count = cap;
     for (uint32_t i = 0; i < count; i++) {
-        snprintf(s_name_bufs[i], sizeof(s_name_bufs[i]), "Unit %u", i + 1);
-        names[i] = s_name_bufs[i];
+        memset(out[i].name, 0, sizeof(out[i].name));
+        snprintf((char*)out[i].name, sizeof(out[i].name), "Unit %u", i + 1);
+        out[i].scope_width = 2;  // pxtone units are panned across L/R; capture is stereo
+    }
+    return count;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void pxtone_set_scope_enabled(void* user_data, bool on) {
+    PxToneReplayerData* data = (PxToneReplayerData*)user_data;
+    if (!data || !data->pxtn) {
+        return;
+    }
+    data->pxtn->moo_enable_scope_capture(on ? 1 : 0);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static uint32_t pxtone_get_scope_samples(void* user_data, int32_t channel, float* out, uint32_t cap) {
+    PxToneReplayerData* data = (PxToneReplayerData*)user_data;
+    if (!data || !data->pxtn || !out) {
+        return 0;
+    }
+    // No hidden auto-on: capture only runs when set_scope_enabled(true) was called.
+    return data->pxtn->moo_get_scope_data(channel, out, cap);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static uint32_t pxtone_get_vu(void* user_data, float* out, uint32_t cap) {
+    PxToneReplayerData* data = (PxToneReplayerData*)user_data;
+    if (!data || !data->pxtn || !out) {
+        return 0;
+    }
+    int total = data->pxtn->Unit_Num();
+    uint32_t count = total > 0 ? (uint32_t)total : 0;
+    if (count > cap)
+        count = cap;
+    // ponytail: VU is the peak of the scope ring, so it tracks set_scope_enabled.
+    float buffer[512];  // up to 256 stereo frames
+    for (uint32_t ch = 0; ch < count; ch++) {
+        uint32_t n = data->pxtn->moo_get_scope_data((int)ch, buffer, 512);
+        float peak = 0.0f;
+        for (uint32_t i = 0; i < n; i++) {
+            float a = buffer[i] < 0.0f ? -buffer[i] : buffer[i];
+            if (a > peak)
+                peak = a;
+        }
+        out[ch] = peak;
     }
     return count;
 }
@@ -466,12 +510,17 @@ static RVPlaybackPlugin g_pxtone_plugin = {
     pxtone_metadata,
     pxtone_static_init,
     nullptr, // settings_updated
-    nullptr, // get_tracker_info
-    nullptr, // get_pattern_cell
-    nullptr, // get_pattern_num_rows
-    pxtone_get_scope_data,
     nullptr, // static_destroy
-    pxtone_get_scope_channel_names,
+    pxtone_get_structure,
+    nullptr, // get_columns
+    nullptr, // get_pattern_channels
+    pxtone_get_scope_channels,
+    nullptr, // get_position
+    nullptr, // get_channel_rows
+    nullptr, // get_cells
+    pxtone_set_scope_enabled,
+    pxtone_get_scope_samples,
+    pxtone_get_vu,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
