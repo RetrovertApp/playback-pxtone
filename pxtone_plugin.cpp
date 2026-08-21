@@ -285,7 +285,8 @@ static RVReadInfo pxtone_read_data(void* user_data, RVReadData dest) {
         return (RVReadInfo) { format, 0, RVReadStatus_Finished};
     }
 
-    uint32_t max_frames = dest.channels_output_max_bytes_size / (sizeof(int16_t) * PXTONE_CHANNELS);
+    uint32_t capacity_frames = dest.channels_output_max_bytes_size / (sizeof(int16_t) * PXTONE_CHANNELS);
+    uint32_t max_frames = dest.info.frame_count < capacity_frames ? dest.info.frame_count : capacity_frames;
 
     // Moo expects buffer size in bytes, outputs S16 directly to output buffer
     int32_t bytes_to_render = (int32_t)(max_frames * PXTONE_CHANNELS * sizeof(int16_t));
