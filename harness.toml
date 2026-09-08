@@ -1,0 +1,9 @@
+[plugin]
+name = "pxtone"
+
+[data]
+entries = []
+
+[[fixtures]]
+file = "fixtures/retrovert_selftest.ptcop"
+sha256 = "618a23869cad9b35e9e69dd2a8ac0f15a5c0a76e7e19e03458d2fa7bfbd67b61"

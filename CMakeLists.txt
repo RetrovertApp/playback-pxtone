@@ -74,9 +74,10 @@ target_include_directories(pxtone_playback PRIVATE
 
 target_link_libraries(pxtone_playback PRIVATE pxtone_static)
 
-if(NOT WIN32)
-    target_link_libraries(pxtone_playback PRIVATE stdc++)
-endif()
+# No explicit -lstdc++: the plugin is already a C++ target, so the C++
+# runtime follows the toolchain's static/dynamic choice. Naming it here
+# made the artifact DT_NEED the shared libstdc++, which the harness's
+# allowlist rejects.
 
 target_compile_options(pxtone_playback PRIVATE
     -Wno-unused-parameter
